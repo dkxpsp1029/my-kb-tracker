@@ -3,65 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>키보드 뉴스 V5.0</title>
+    <title>키보드 뉴스 V5.1</title>
     <style>
         :root { --primary: #1a73e8; --reddit: #ff4500; --geekhack: #4b5563; }
         body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
         .container { max-width: 600px; margin: 0 auto; }
-        header { background: var(--primary); color: white; padding: 20px; border-radius: 12px 12px 0 0; text-align: center; }
-        
-        /* 카드 스타일 */
-        .card { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 20px; overflow: hidden; display: flex; flex-direction: column; }
-        .card-img { width: 100%; height: 250px; object-fit: cover; background: #ddd; }
+        header { background: var(--primary); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; overflow: hidden; display: flex; flex-direction: column; }
+        .card-img { width: 100%; height: 300px; object-fit: cover; background: #eee; }
         .card-body { padding: 20px; }
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; margin-bottom: 10px; }
-        .title { font-size: 18px; font-weight: bold; color: #1c1e21; line-height: 1.4; margin-bottom: 10px; text-decoration: none; display: block; }
-        .summary { font-size: 14px; color: #4b4f56; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 15px; }
-        .btn-more { display: inline-block; color: var(--primary); font-weight: bold; text-decoration: none; font-size: 14px; }
-        
-        .loading { text-align: center; padding: 50px; color: #888; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; margin-bottom: 12px; }
+        .title { font-size: 19px; font-weight: bold; color: #1c1e21; line-height: 1.4; margin-bottom: 10px; text-decoration: none; display: block; }
+        .summary { font-size: 15px; color: #4b4f56; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 15px; }
+        .btn-more { display: inline-block; color: var(--primary); font-weight: bold; text-decoration: none; font-size: 15px; }
+        .loading { text-align: center; padding: 100px 20px; color: #666; font-weight: bold; line-height: 1.6; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header><h2 style="margin:0">⌨️ 키보드 공제 뉴스 큐레이션</h2></header>
+    <header><h2 style="margin:0">⌨️ 키보드 공제 뉴스 레포트</h2></header>
     <div id="list-container">
-        <div class="loading">서버에서 사진과 내용을 가져오는 중...</div>
+        <div class="loading">📡 서버 엔진 가동 중...<br>Geekhack에서 사진과 내용을 긁어오고 있습니다.</div>
     </div>
 </div>
 
 <script>
     async function loadData() {
         const container = document.getElementById('list-container');
-        // V2.9에서 썼던 RSS 주소 사용
-        const rssUrl = 'https://api.rss2json.com/v1/api.json?rss_url=https://geekhack.org/index.php?type=rss;action=news;board=70.0';
+        // Vercel 환경인지 로컬 환경인지 자동으로 주소를 맞춥니다.
+        const apiBase = window.location.hostname === '127.0.0.1' ? '' : 'https://' + window.location.hostname;
+        const rssUrl = 'https://api.rss2json.com/v1/api.json?rss_url=https://geekhack.org/index.php?type=rss;action=news;board=70.0&api_key=oyebv9yqf0e340asf6skw7sqfzyh8wpxofaxpzn9';
 
         try {
             const response = await fetch(rssUrl);
             const data = await response.json();
+            
+            if (!data.items || data.items.length === 0) throw new Error("No data");
             container.innerHTML = '';
 
-            for (let item of data.items) {
-                // 우리가 만든 Vercel 서버(/api/fetch)에 본문과 이미지를 요청합니다.
-                const detailRes = await fetch(`/api/fetch?url=${encodeURIComponent(item.link)}`);
-                const details = await detailRes.json();
+            // 상위 10개만 먼저 수집 (속도를 위해)
+            for (let item of data.items.slice(0, 10)) {
+                try {
+                    // 서버 API 호출
+                    const detailRes = await fetch(`${apiBase}/api/fetch?url=${encodeURIComponent(item.link)}`);
+                    const details = await detailRes.json();
 
-                const card = `
-                    <div class="card">
-                        ${details.image ? `<img src="${details.image}" class="card-img" onerror="this.style.display='none'">` : ''}
-                        <div class="card-body">
-                            <span class="badge" style="background:var(--geekhack)">GEEKHACK</span>
-                            <a href="${item.link}" target="_blank" class="title">${item.title}</a>
-                            <p class="summary">${details.content || '내용 요약 중...'}</p>
-                            <a href="${item.link}" target="_blank" class="btn-more">원문 전체보기 →</a>
+                    const card = `
+                        <div class="card">
+                            ${details.image ? `<img src="${details.image}" class="card-img" onerror="this.remove()">` : ''}
+                            <div class="card-body">
+                                <span class="badge" style="background:#4b5563">GEEKHACK</span>
+                                <a href="${item.link}" target="_blank" class="title">${item.title}</a>
+                                <p class="summary">${details.content || '내용 요약 중...'}</p>
+                                <a href="${item.link}" target="_blank" class="btn-more">자세히 보기 →</a>
+                            </div>
                         </div>
-                    </div>
-                `;
-                container.insertAdjacentHTML('beforeend', card);
+                    `;
+                    container.insertAdjacentHTML('beforeend', card);
+                } catch (err) { console.error("항목 로드 실패", err); }
             }
         } catch (e) {
-            container.innerHTML = '<div class="loading">데이터 로드 실패. 잠시 후 다시 확인해주세요.</div>';
+            container.innerHTML = '<div class="loading">❌ 데이터를 가져오지 못했습니다.<br>잠시 후 새로고침(F5) 해주세요.</div>';
         }
     }
 
