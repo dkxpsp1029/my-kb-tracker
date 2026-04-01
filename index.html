@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>키보드 통합 추적기 V2.8</title>
+    <title>키보드 통합 추적기 V2.9</title>
     <style>
         :root { --primary: #1a73e8; --reddit: #ff4500; --geekhack: #4b5563; --korea: #ef4444; }
         body { font-family: -apple-system, sans-serif; background: #f3f4f6; margin: 0; padding: 15px; }
@@ -12,48 +12,50 @@
         .tabs { display: flex; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
         .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; font-size: 13px; font-weight: bold; color: #6b7280; border-bottom: 3px solid transparent; }
         .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: white; }
-        .item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f3f4f6; text-decoration: none; color: #1f2937; }
+        .item { display: flex; padding: 15px; border-bottom: 1px solid #f3f4f6; text-decoration: none; color: #1f2937; align-items: center; }
         .item:hover { background: #f9fafb; }
-        .badge { font-size: 10px; padding: 3px 7px; border-radius: 4px; color: white; margin-right: 12px; font-weight: bold; min-width: 60px; text-align: center; }
+        .badge { font-size: 10px; padding: 3px 8px; border-radius: 4px; color: white; margin-right: 12px; font-weight: bold; min-width: 65px; text-align: center; }
         .bg-reddit { background: var(--reddit); } .bg-geekhack { background: var(--geekhack); } .bg-korea { background: var(--korea); }
-        .info { flex: 1; } .title { font-size: 14px; font-weight: 600; line-height: 1.4; display: block; }
+        .info { flex: 1; } .title { font-size: 14px; font-weight: 600; line-height: 1.4; display: block; margin-bottom: 4px; }
+        .date { font-size: 11px; color: #9ca3af; }
         .loading { padding: 80px; text-align: center; color: #9ca3af; }
     </style>
 </head>
 <body>
 <div class="app-card">
-    <header><h2 style="margin:0; font-size:18px;">⌨️ 키보드 통합 추적기 V2.8</h2></header>
+    <header><h2 style="margin:0; font-size:18px;">⌨️ 키보드 통합 추적기 V2.9</h2></header>
     <div class="tabs">
         <div id="tab-all" class="tab active" onclick="changeTab('all')">전체보기</div>
-        <div id="tab-korea" class="tab" onclick="changeTab('korea')">🇰🇷 한국 소식</div>
+        <div id="tab-korea" class="tab" onclick="changeTab('korea')">🇰🇷 한국/아시아</div>
         <div id="tab-geekhack" class="tab" onclick="changeTab('geekhack')">🌐 Geekhack</div>
     </div>
-    <div id="list-container"><div class="loading">최신 공제 정보를 불러오는 중...</div></div>
+    <div id="list-container"><div class="loading">데이터를 실시간 수집 중...</div></div>
 </div>
 
 <script>
     let allItems = [];
     let currentTab = 'all';
+    // 한국 관련 키워드
     const KR_KEYWORDS = ["kr", "korea", "geon", "swag", "funs", "knd", "asia", "지온", "스웨그", "펀키스", "상우", "tx", "monsta"];
 
     async function loadData() {
         const container = document.getElementById('list-container');
-        const redditUrl = 'https://www.reddit.com/r/MechGroupBuys/new.rss';
-        const ghUrl = 'https://geekhack.org/index.php?type=rss;action=news;board=70.0';
+        const feeds = [
+            { name: "Reddit", url: "https://www.reddit.com/r/MechGroupBuys/new.rss" },
+            { name: "Geekhack", url: "https://geekhack.org/index.php?type=rss;action=news;board=70.0" }
+        ];
 
         try {
-            const results = await Promise.all([
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(redditUrl)}&api_key=oyebv9yqf0e340asf6skw7sqfzyh8wpxofaxpzn9`).then(r => r.json()),
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(ghUrl)}&api_key=oyebv9yqf0e340asf6skw7sqfzyh8wpxofaxpzn9`).then(r => r.json())
-            ]);
+            const results = await Promise.all(feeds.map(f => 
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(f.url)}&api_key=oyebv9yqf0e340asf6skw7sqfzyh8wpxofaxpzn9`)
+                .then(r => r.json())
+                .then(data => (data.items || []).map(i => ({ ...i, source: f.name })))
+            ));
 
-            const redditItems = (results[0].items || []).map(i => ({ ...i, source: 'Reddit' }));
-            const ghItems = (results[1].items || []).map(i => ({ ...i, source: 'Geekhack' }));
-            
-            allItems = [...redditItems, ...ghItems].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+            allItems = results.flat().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
             render();
         } catch (e) {
-            container.innerHTML = '<div class="loading">데이터 로드 실패. 잠시 후 새로고침 해주세요.</div>';
+            container.innerHTML = '<div class="loading">데이터 로드 실패. F5를 눌러주세요.</div>';
         }
     }
 
@@ -69,21 +71,29 @@
         }
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="loading">표시할 최신 데이터가 없습니다.</div>';
+            container.innerHTML = '<div class="loading">표시할 데이터가 없습니다.</div>';
             return;
         }
 
         filtered.forEach(item => {
             const isKR = KR_KEYWORDS.some(k => item.title.toLowerCase().includes(k));
-            const badgeClass = isKR ? 'bg-korea' : (item.source === 'Geekhack' ? 'bg-geekhack' : 'bg-reddit');
-            const badgeText = isKR ? 'KOREA' : item.source;
+            let badgeClass = 'bg-reddit';
+            let badgeText = 'REDDIT';
+
+            if (isKR) {
+                badgeClass = 'bg-korea';
+                badgeText = 'KOREA';
+            } else if (item.source === 'Geekhack') {
+                badgeClass = 'bg-geekhack';
+                badgeText = 'GEEKHACK';
+            }
 
             container.insertAdjacentHTML('beforeend', `
                 <a href="${item.link}" target="_blank" class="item">
                     <span class="badge ${badgeClass}">${badgeText}</span>
                     <div class="info">
                         <span class="title">${item.title}</span>
-                        <div style="font-size:11px; color:#999; margin-top:5px;">${item.pubDate}</div>
+                        <span class="date">${new Date(item.pubDate).toLocaleString()}</span>
                     </div>
                 </a>
             `);
