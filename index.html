@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>키보드 통합 추적기 V4.0</title>
+    <title>키보드 통합 추적기 V4.1</title>
     <style>
         :root { --primary: #1a73e8; --reddit: #ff4500; --geekhack: #4b5563; --korea: #ef4444; }
         body { font-family: -apple-system, sans-serif; background: #f3f4f6; margin: 0; padding: 15px; }
@@ -23,13 +23,13 @@
 </head>
 <body>
 <div class="app-card">
-    <header><h2 style="margin:0; font-size:18px;">⌨️ 키보드 통합 추적기 V4.0</h2></header>
+    <header><h2 style="margin:0; font-size:18px;">⌨️ 키보드 통합 추적기 V4.1</h2></header>
     <div class="tabs">
         <div id="tab-all" class="tab active" onclick="changeTab('all')">전체보기</div>
         <div id="tab-korea" class="tab" onclick="changeTab('korea')">🇰🇷 한국/아시아</div>
         <div id="tab-geekhack" class="tab" onclick="changeTab('geekhack')">🌐 Geekhack</div>
     </div>
-    <div id="list-container"><div class="loading">직접 데이터를 파싱 중입니다...<br>잠시만 기다려주세요.</div></div>
+    <div id="list-container"><div class="loading">보안벽을 우회하여 데이터를 가져오는 중...</div></div>
 </div>
 
 <script>
@@ -37,49 +37,39 @@
     let currentTab = 'all';
     const KR_KEYWORDS = ["kr", "korea", "geon", "swag", "funs", "knd", "asia", "지온", "스웨그", "펀키스", "상우", "tx", "monsta"];
 
-    async function fetchData(url, source) {
-        try {
-            // 이번에는 프록시 없이 직접 요청을 보냅니다 (CORS Unblock 필요)
-            const response = await fetch(url);
-            const text = await response.text();
-            const parser = new DOMParser();
-            const xml = parser.parseFromString(text, "text/xml");
-            
-            return Array.from(xml.querySelectorAll("item")).map(item => ({
-                title: item.querySelector("title")?.textContent || "제목 없음",
-                link: item.querySelector("link")?.textContent || "#",
-                pubDate: item.querySelector("pubDate")?.textContent || new Date().toISOString(),
-                source: source
-            }));
-        } catch (e) {
-            console.error(source + " 실패:", e);
-            return [];
-        }
-    }
-
     async function loadData() {
+        const container = document.getElementById('list-container');
+        // Reddit의 403 차단을 피하기 위해 rss2json의 전용 서버를 경유합니다.
         const redditUrl = 'https://www.reddit.com/r/MechGroupBuys/new.rss';
         const ghUrl = 'https://geekhack.org/index.php?type=rss;action=news;board=70.0';
+        
+        const apiKey = 'oyebv9yqf0e340asf6skw7sqfzyh8wpxofaxpzn9'; // 전용 키
 
-        const [redditItems, ghItems] = await Promise.all([
-            fetchData(redditUrl, "Reddit"),
-            fetchData(ghUrl, "Geekhack")
-        ]);
+        try {
+            const results = await Promise.all([
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(redditUrl)}&api_key=${apiKey}`).then(r => r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(ghUrl)}&api_key=${apiKey}`).then(r => r.json())
+            ]);
 
-        allItems = [...redditItems, ...ghItems].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-        render();
+            const redditItems = (results[0].items || []).map(i => ({ ...i, source: 'Reddit' }));
+            const ghItems = (results[1].items || []).map(i => ({ ...i, source: 'Geekhack' }));
+            
+            allItems = [...redditItems, ...ghItems].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+            render();
+        } catch (e) {
+            container.innerHTML = '<div class="loading">데이터 연결 실패. 잠시 후 다시 시도해주세요.</div>';
+        }
     }
 
     function render() {
         const container = document.getElementById('list-container');
         container.innerHTML = '';
-        
         let filtered = allItems;
         if (currentTab === 'korea') filtered = allItems.filter(i => KR_KEYWORDS.some(k => i.title.toLowerCase().includes(k)));
         else if (currentTab === 'geekhack') filtered = allItems.filter(i => i.source === 'Geekhack');
 
         if (filtered.length === 0) {
-            container.innerHTML = `<div class="loading">데이터를 찾을 수 없습니다.<br>CORS Unblock이 [Start] 상태인지 확인해주세요.</div>`;
+            container.innerHTML = '<div class="loading">데이터가 없습니다.</div>';
             return;
         }
 
@@ -91,7 +81,7 @@
                     <span class="badge ${badgeClass}">${isKR ? 'KOREA' : item.source.toUpperCase()}</span>
                     <div class="info">
                         <span class="title">${item.title}</span>
-                        <span class="date">${new Date(item.pubDate).toLocaleDateString()}</span>
+                        <span class="date">${item.pubDate}</span>
                     </div>
                 </a>
             `);
