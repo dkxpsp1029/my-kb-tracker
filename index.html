@@ -3,99 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>키보드 통합 추적기 V4.1</title>
+    <title>키보드 통합 추적기 (포털형)</title>
     <style>
-        :root { --primary: #1a73e8; --reddit: #ff4500; --geekhack: #4b5563; --korea: #ef4444; }
+        :root { --primary: #1a73e8; --reddit: #ff4500; --geekhack: #4b5563; }
         body { font-family: -apple-system, sans-serif; background: #f3f4f6; margin: 0; padding: 15px; }
-        .app-card { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+        .app-card { max-width: 500px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
         header { background: var(--primary); color: white; padding: 20px; text-align: center; }
-        .tabs { display: flex; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
-        .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; font-size: 13px; font-weight: bold; color: #6b7280; border-bottom: 3px solid transparent; }
-        .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: white; }
-        .item { display: flex; padding: 15px; border-bottom: 1px solid #f3f4f6; text-decoration: none; color: #1f2937; align-items: center; }
-        .item:hover { background: #f9fafb; }
-        .badge { font-size: 10px; padding: 3px 8px; border-radius: 4px; color: white; margin-right: 12px; font-weight: bold; min-width: 65px; text-align: center; }
-        .bg-reddit { background: var(--reddit); } .bg-geekhack { background: var(--geekhack); } .bg-korea { background: var(--korea); }
-        .info { flex: 1; } .title { font-size: 14px; font-weight: 600; line-height: 1.4; display: block; margin-bottom: 4px; }
-        .date { font-size: 11px; color: #9ca3af; }
-        .loading { padding: 80px; text-align: center; color: #9ca3af; }
+        .link-list { padding: 20px; }
+        .btn { display: flex; align-items: center; justify-content: space-between; padding: 18px; margin-bottom: 12px; border-radius: 10px; text-decoration: none; color: white; font-weight: bold; transition: 0.2s; }
+        .btn:hover { opacity: 0.9; transform: scale(1.02); }
+        .bg-reddit { background: var(--reddit); }
+        .bg-geekhack { background: var(--geekhack); }
+        .bg-korea { background: #34a853; }
+        .desc { font-size: 12px; font-weight: normal; opacity: 0.8; margin-top: 4px; display: block; }
     </style>
 </head>
 <body>
 <div class="app-card">
-    <header><h2 style="margin:0; font-size:18px;">⌨️ 키보드 통합 추적기 V4.1</h2></header>
-    <div class="tabs">
-        <div id="tab-all" class="tab active" onclick="changeTab('all')">전체보기</div>
-        <div id="tab-korea" class="tab" onclick="changeTab('korea')">🇰🇷 한국/아시아</div>
-        <div id="tab-geekhack" class="tab" onclick="changeTab('geekhack')">🌐 Geekhack</div>
+    <header><h2 style="margin:0">⌨️ 키보드 통합 포털</h2></header>
+    <div class="link-list">
+        <a href="https://www.reddit.com/r/MechGroupBuys/new/" target="_blank" class="btn bg-reddit">
+            <div>🚀 Reddit 실시간 공제<span class="desc">r/MechGroupBuys 최신글 바로가기</span></div>
+            <span>▶</span>
+        </a>
+        <a href="https://geekhack.org/index.php?board=70.0" target="_blank" class="btn bg-geekhack">
+            <div>🌐 Geekhack 공식 포럼<span class="desc">전 세계 키보드 공제 원문 확인</span></div>
+            <span>▶</span>
+        </a>
+        <a href="https://duckduckgo.com/?q=geonworks+swagkeys+funs+keyboard+gb&t=h_&ia=web" target="_blank" class="btn bg-korea">
+            <div>🇰🇷 한국/아시아 통합 검색<span class="desc">국내 벤더 최신 소식 모아보기</span></div>
+            <span>▶</span>
+        </a>
     </div>
-    <div id="list-container"><div class="loading">보안벽을 우회하여 데이터를 가져오는 중...</div></div>
+    <div style="text-align:center; padding-bottom:20px; color:#999; font-size:12px;">보안 프로그램 차단 시 이 포털형을 사용하세요.</div>
 </div>
-
-<script>
-    let allItems = [];
-    let currentTab = 'all';
-    const KR_KEYWORDS = ["kr", "korea", "geon", "swag", "funs", "knd", "asia", "지온", "스웨그", "펀키스", "상우", "tx", "monsta"];
-
-    async function loadData() {
-        const container = document.getElementById('list-container');
-        // Reddit의 403 차단을 피하기 위해 rss2json의 전용 서버를 경유합니다.
-        const redditUrl = 'https://www.reddit.com/r/MechGroupBuys/new.rss';
-        const ghUrl = 'https://geekhack.org/index.php?type=rss;action=news;board=70.0';
-        
-        const apiKey = 'oyebv9yqf0e340asf6skw7sqfzyh8wpxofaxpzn9'; // 전용 키
-
-        try {
-            const results = await Promise.all([
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(redditUrl)}&api_key=${apiKey}`).then(r => r.json()),
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(ghUrl)}&api_key=${apiKey}`).then(r => r.json())
-            ]);
-
-            const redditItems = (results[0].items || []).map(i => ({ ...i, source: 'Reddit' }));
-            const ghItems = (results[1].items || []).map(i => ({ ...i, source: 'Geekhack' }));
-            
-            allItems = [...redditItems, ...ghItems].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-            render();
-        } catch (e) {
-            container.innerHTML = '<div class="loading">데이터 연결 실패. 잠시 후 다시 시도해주세요.</div>';
-        }
-    }
-
-    function render() {
-        const container = document.getElementById('list-container');
-        container.innerHTML = '';
-        let filtered = allItems;
-        if (currentTab === 'korea') filtered = allItems.filter(i => KR_KEYWORDS.some(k => i.title.toLowerCase().includes(k)));
-        else if (currentTab === 'geekhack') filtered = allItems.filter(i => i.source === 'Geekhack');
-
-        if (filtered.length === 0) {
-            container.innerHTML = '<div class="loading">데이터가 없습니다.</div>';
-            return;
-        }
-
-        filtered.forEach(item => {
-            const isKR = KR_KEYWORDS.some(k => item.title.toLowerCase().includes(k));
-            const badgeClass = isKR ? 'bg-korea' : (item.source === 'Reddit' ? 'bg-reddit' : 'bg-geekhack');
-            container.insertAdjacentHTML('beforeend', `
-                <a href="${item.link}" target="_blank" class="item">
-                    <span class="badge ${badgeClass}">${isKR ? 'KOREA' : item.source.toUpperCase()}</span>
-                    <div class="info">
-                        <span class="title">${item.title}</span>
-                        <span class="date">${item.pubDate}</span>
-                    </div>
-                </a>
-            `);
-        });
-    }
-
-    function changeTab(type) {
-        currentTab = type;
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab-' + type).classList.add('active');
-        render();
-    }
-
-    loadData();
-</script>
 </body>
 </html>
